@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crop Price Prediction Dashboard</title>
+    <style>
+        :root {
+            --primary-color: #2e7d32;
+            --secondary-color: #81c784;
+            --accent-color: #ff8f00;
+            --text-color: #333;
+            --light-bg: #f5f5f5;
+            --white: #ffffff;
+            --error-color: #d32f2f;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-color);
+        }
+
+        .container {
+            background: var(--white);
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+            transition: all 0.3s ease;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .header h2 {
+            color: var(--primary-color);
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .header p {
+            color: #666;
+            margin-top: 8px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            font-size: 14px;
+            color: var(--text-color);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 15px;
+            transition: border 0.3s;
+            background-color: var(--light-bg);
+        }
+
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 16px;
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 14px;
+            width: 100%;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .loader {
+            display: none;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--white);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .results {
+            margin-top: 25px;
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .result-card {
+            background: var(--light-bg);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .result-label {
+            font-weight: 500;
+            color: #666;
+        }
+
+        .result-value {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .price-highlight {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-color);
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        .error-message {
+            color: var(--error-color);
+            background-color: #fde8e8;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            display: none;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+            .header h2 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Crop Price Prediction</h2>
+            <p>Get accurate price forecasts for agricultural produce in Andhra Pradesh</p>
+        </div>
+
+        <div class="form-group">
+            <label for="year">Year</label>
+            <input type="number" id="year" class="form-control" 
+                   placeholder="e.g., 2023" 
+                   min="2000" max="2030" 
+                   value="2023" required>
+        </div>
+
+        <div class="form-group">
+            <label for="month-or-season">Time Period</label>
+            <select id="month-or-season" class="form-control" onchange="toggleInput()" required>
+                <option value="">Select Month or Season</option>
+                <option value="Month">Month</option>
+                <option value="Season">Season</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="month-group" style="display: none;">
+            <label for="month">Month</label>
+            <select id="month" class="form-control">
+                <option value="">Select Month</option>
+                <option value="January">January</option>
+                <option value="February">February</option>
+                <option value="March">March</option>
+                <option value="April">April</option>
+                <option value="May">May</option>
+                <option value="June">June</option>
+                <option value="July">July</option>
+                <option value="August">August</option>
+                <option value="September">September</option>
+                <option value="October">October</option>
+                <option value="November">November</option>
+                <option value="December">December</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="season-group" style="display: none;">
+            <label for="season">Season</label>
+            <select id="season" class="form-control">
+                <option value="">Select Season</option>
+                <option value="Kharif">Kharif (June-October)</option>
+                <option value="Rabi">Rabi (November-March)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="crop-name">Crop</label>
+            <select id="crop-name" class="form-control" required>
+                <option value="">Select Crop</option>
+                <option value="Groundnut">Groundnut</option>
+                <option value="Paddy">Paddy</option>
+            </select>
+        </div>
+
+        <button class="btn" onclick="predictPrice()">
+            <span id="btn-text">Predict Price</span>
+            <div class="loader" id="loader"></div>
+        </button>
+
+        <div class="error-message" id="error-message"></div>
+
+        <div class="results" id="results">
+            <div class="result-card">
+                <div class="result-row">
+                    <span class="result-label">Crop:</span>
+                    <span class="result-value" id="predicted-crop">-</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">State:</span>
+                    <span class="result-value" id="predicted-state">Andhra Pradesh</span>
+                </div>
+                <div class="result-row">
+                    <span class="result-label">Time Period:</span>
+                    <span class="result-value" id="predicted-period">-</span>
+                </div>
+            </div>
+
+            <div class="price-highlight">
+                ₹<span id="predicted-price-kg">-</span> / kg
+            </div>
+
+            <div class="result-card">
+                <div class="result-row">
+                    <span class="result-label">Price per quintal:</span>
+                    <span class="result-value">₹<span id="predicted-price-quintal">-</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleInput() {
+            const selection = document.getElementById("month-or-season").value;
+            document.getElementById("month-group").style.display = selection === "Month" ? "block" : "none";
+            document.getElementById("season-group").style.display = selection === "Season" ? "block" : "none";
+            
+            if (selection === "Month") {
+                document.getElementById("season").value = "";
+            } else if (selection === "Season") {
+                document.getElementById("month").value = "";
+            }
+        }
+
+        function validateInputs() {
+            const year = document.getElementById("year").value;
+            const selection = document.getElementById("month-or-season").value;
+            const month = selection === "Month" ? document.getElementById("month").value : "";
+            const season = selection === "Season" ? document.getElementById("season").value : "";
+            const cropName = document.getElementById("crop-name").value;
+            
+            document.getElementById("error-message").style.display = "none";
+            
+            if (!year || year < 2000 || year > 2030) {
+                showError("Please enter a valid year between 2000 and 2030");
+                return false;
+            }
+            
+            if (!selection) {
+                showError("Please select either Month or Season");
+                return false;
+            }
+            
+            if (selection === "Month" && !month) {
+                showError("Please select a month");
+                return false;
+            }
+            
+            if (selection === "Season" && !season) {
+                showError("Please select a season");
+                return false;
+            }
+            
+            if (!cropName) {
+                showError("Please select a crop");
+                return false;
+            }
+            
+            return true;
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById("error-message");
+            errorElement.textContent = message;
+            errorElement.style.display = "block";
+        }
+
+        function formatPrice(price) {
+            return parseFloat(price).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        async function predictPrice() {
+            if (!validateInputs()) return;
+            
+            const year = document.getElementById("year").value;
+            const selection = document.getElementById("month-or-season").value;
+            const month = selection === "Month" ? document.getElementById("month").value : "";
+            const season = selection === "Season" ? document.getElementById("season").value : "";
+            const cropName = document.getElementById("crop-name").value;
+            
+            document.getElementById("loader").style.display = "block";
+            document.getElementById("btn-text").style.display = "none";
+            document.getElementById("results").style.display = "none";
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        year: parseInt(year),
+                        month: month,
+                        season: season,
+                        crop_name: cropName
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || "Prediction failed. Please try again.");
+                }
+                
+                const result = await response.json();
+                
+                document.getElementById("predicted-crop").textContent = result.crop_name;
+                document.getElementById("predicted-price-kg").textContent = formatPrice(result.price_per_kg);
+                document.getElementById("predicted-price-quintal").textContent = formatPrice(result.price_per_quintal);
+                
+                const periodElement = document.getElementById("predicted-period");
+                if (month) {
+                    periodElement.textContent = `${month} ${year}`;
+                } else {
+                    periodElement.textContent = `${season} Season ${year}`;
+                }
+                
+                document.getElementById("results").style.display = "block";
+                
+            } catch (error) {
+                showError(error.message || "An error occurred. Please try again.");
+            } finally {
+                document.getElementById("loader").style.display = "none";
+                document.getElementById("btn-text").style.display = "block";
+            }
+        }
+    </script>
+</body>
+</html>

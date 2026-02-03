@@ -2,9 +2,8 @@ from flask import Flask, request, jsonify, render_template
 import pandas as pd
 import numpy as np
 import joblib
-from sklearn.preprocessing import PolynomialFeatures
 
-app = Flask(__name__, static_url_path='', static_folder='static', template_folder='templates')
+app = Flask(__name__, template_folder='templates')
 
 # Load models function
 def load_models(crop_name):
@@ -13,7 +12,6 @@ def load_models(crop_name):
             'rf': joblib.load(f'rf_model_{crop_name.lower()}.pkl'),
             'xgb': joblib.load(f'xgb_model_{crop_name.lower()}.pkl'),
             'meta': joblib.load(f'meta_model_{crop_name.lower()}.pkl'),
-            'poly': joblib.load(f'poly_{crop_name.lower()}.pkl'),
             'scaler': joblib.load(f'scaler_{crop_name.lower()}.pkl'),
             'features': joblib.load(f'features_{crop_name.lower()}.pkl')
         }
@@ -33,7 +31,6 @@ except Exception as e:
 def home():
     return render_template('index.html')
 
-@app.route('/predict', methods=['POST'])
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
@@ -55,35 +52,53 @@ def predict():
         # Get models
         models = groundnut_models if crop_name == 'Groundnut' else paddy_models
         
-        # Prepare input - ensure all expected features exist
+        # Prepare input with feature engineering
+        year = int(data['year'])
+        month_str = data.get('month', 'January')
+        
+        # Map month name to number
+        month_map = {
+            'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6,
+            'July': 7, 'August': 8, 'September': 9, 'October': 10, 'November': 11, 'December': 12
+        }
+        month_num = month_map.get(month_str, 1)
+        
+        # Feature engineering matching training pipeline
         input_data = {
-            'year': int(data['year']),
-            'month': data.get('month', 'Unknown'),
-            'season': data.get('season', 'Unknown'),
-            'crop_type': crop_name,
+            'years_since_2000': year - 2000,
+            'year_squared': (year - 2000) ** 2,
+            'year_normalized': (year - 2000) / 26.0,  # Approximate normalization
+            'month_sin': np.sin(2 * np.pi * (month_num - 1) / 12),
+            'month_cos': np.cos(2 * np.pi * (month_num - 1) / 12),
+            'is_monsoon': 1 if month_num in [6, 7, 8, 9] else 0,
+            'total_area_cultivated_ha': float(data.get('total_area_cultivated_ha', 100.0)),
+            'avg_rainfall_mm': float(data.get('avg_rainfall_mm', 100.0)),
+            'avg_temp_deg_c': float(data.get('avg_temp_deg_c', 25.0)),
+            'yield_per_ha': float(data.get('yield_per_ha', 2.0)),
+            'temp_rainfall_ratio': float(data.get('temp_rainfall_ratio', 0.25)),
+            'msp_rupee_quintal': float(data.get('msp_rupee_quintal', 2500.0)),
+            'inflation_rate_%': float(data.get('inflation_rate_%', 5.5)),
+            'fuel_prices_rupee_l': float(data.get('fuel_prices_rupee_l', 100.0)),
+            'real_price': float(data.get('real_price', 3000.0)),  # Default historical average
             'is_groundnut': 1 if crop_name == 'Groundnut' else 0,
             'is_paddy': 1 if crop_name == 'Paddy' else 0
         }
 
-        # Add missing features with defaults
-        for feature in models['features']:
-            if feature not in input_data:
-                if feature in ['avg_temp_deg_c', 'avg_rainfall_mm']:
-                    input_data[feature] = 25.0 if 'temp' in feature else 100.0  # Reasonable defaults
-                else:
-                    input_data[feature] = 0
-
-        # Create DataFrame
+        # Create DataFrame with only features needed
         input_df = pd.DataFrame([input_data])
+        features_needed = models['features']
+        
+        # Select only features that exist in the loaded models
+        input_df_filtered = input_df[[col for col in features_needed if col in input_df.columns]]
         
         # Debug processed features
         print("\n=== PROCESSED DATAFRAME ===")
-        print(input_df[models['features']])
-        print("Columns:", list(input_df.columns))
+        print(input_df_filtered)
+        print("Features used:", list(input_df_filtered.columns))
+        print("Expected features:", features_needed)
 
-        # Transform features
-        X_poly = models['poly'].transform(input_df[models['features']])
-        X_scaled = models['scaler'].transform(X_poly)
+        # Scale features (no polynomial transformation needed - already done during training)
+        X_scaled = models['scaler'].transform(input_df_filtered[features_needed])
         
         # Debug feature transformation
         print("\n=== TRANSFORMED FEATURES ===")
@@ -98,7 +113,7 @@ def predict():
         print("\n=== PREDICTIONS ===")
         print(f"RF: {rf_pred[0]:.2f}, XGB: {xgb_pred[0]:.2f}, Final: {final_pred[0]:.2f}")
 
-        # Format output (removed multipliers for now)
+        # Format output
         price_per_quintal = round(float(final_pred[0]), 2)
         price_per_kg = round(price_per_quintal / 100, 2)
         
@@ -114,6 +129,8 @@ def predict():
 
     except Exception as e:
         print(f"\n!!! ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
